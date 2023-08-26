@@ -1,0 +1,11 @@
+find usb file data (keys) in packet label usbms. reassemble using packet time as order
+save udp packet data to 192.168.4.17 as hexstream into a single file
+decrypt using xor between key and hex
+eventually decrypt all
+convert hex to text
+find pixel values
+figure out that they are columns of pixel values
+reassemble image
+find flag
+profit
+

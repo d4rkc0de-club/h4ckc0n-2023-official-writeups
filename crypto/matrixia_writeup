@@ -1,0 +1,72 @@
+from sage.all import ZZ, random_matrix, random_vector, matrix, vector, IntegerModRing, R
+from sage.modules.free_module_integer import IntegerLattice
+
+from random import randint
+import random
+import sys
+from itertools import starmap
+from operator import mul
+from Crypto.Util.number import bytes_to_long, long_to_bytes
+from Crypto.Util.Padding import pad, unpad
+
+flag = b"d4rkc0de{3rror_tic4_is_aw3s0m3}"
+output_file = open("output.txt", "w")
+
+# Babai's Nearest Plane algorithm
+# from: http://mslc.ctf.su/wp/plaidctf-2016-sexec-crypto-300/
+def Babai_closest_vector(M, G, target):
+  small = target
+  for _ in range(1):
+    for i in reversed(range(M.nrows())):
+      c = ((small * G[i]) / (G[i] * G[i])).round()
+      small -= M[i] * c
+  return target - small
+
+# randomize
+m = 69
+n = 18
+magic_khkh = 104696199370625629342858923953070441
+
+A_values = random_matrix(ZZ, m, n, x=9942039518, y=magic_khkh>>8)
+# now generate a random vector of dim n
+hidden_seed = random_vector(ZZ, n, x=1234567891011, y=magic_khkh>>16)
+b_correct = A_values * hidden_seed
+
+assert min(map(lambda x: x.nbits(), b_correct)) > 200
+# life is not simple
+b_values = [i^(randint(2<<70, 2<<80)) for i in b_correct]
+
+# write A_values to file
+output_file.write("A_values: \n{}\n".format(A_values))
+# write b_values to file
+output_file.write("b_values: \n{}\n".format(b_values))
+
+A = matrix(ZZ, m + n, m)
+
+for x in range(m):
+  A[x, x] = magic_khkh
+  for y in range(n):
+    A[m + y, x] = A_values[x][y]
+
+lattice = IntegerLattice(A, lll_reduce=True)
+gram = lattice.reduced_basis.gram_schmidt()[0]
+target = vector(ZZ, b_values)
+res = Babai_closest_vector(lattice.reduced_basis, gram, target)
+# print("Closest Vector: {}".format(res))
+# print("Known correct : {}".format(b_correct))
+
+R = IntegerModRing(magic_khkh)
+M = matrix(R, A_values)
+x_val = M.solve_right(res)
+
+# print("hidden_seed: {}".format(x_val))
+assert x_val == hidden_seed
+
+print("ok")
+seed = int(sum(hidden_seed))
+random.seed(seed)
+flagnum = bytes_to_long(pad(flag,32))
+print("length of flag in bits", len(bin(flagnum))-2)
+xorkey = random.getrandbits(256)
+output_file.write("Flag for you love: \n{}\n".format(flagnum ^ xorkey))
+print("Flag for me: {}".format(long_to_bytes((flagnum ^ xorkey)^xorkey)))
